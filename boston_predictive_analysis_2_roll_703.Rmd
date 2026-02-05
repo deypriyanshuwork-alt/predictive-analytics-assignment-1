@@ -1,0 +1,65 @@
+---
+title: "predictive_analysis 2_roll_703"
+author: "Priyanshu Dey 703"
+date: "2026-02-05"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Problem 4 
+
+
+## 4. Comparing Several Simple Linear Regressions
+
+We analyze the `Boston` dataset to predict median home values (`medv`) using four distinct predictors: per capita crime rate (`crim`), nitrogen oxides concentration (`nox`), proportion of blacks (`black`), and lower status of the population (`lstat`).
+
+### (a) Regression Models Output
+
+We load the necessary libraries
+```{r loading_library}
+library(MASS)
+```
+
+```{r prob4_a}
+data("Boston")
+predictors = c("crim", "nox", "black", "lstat")
+results = data.frame()
+
+for(var in predictors){
+  formula = as.formula(paste("medv ~", var))
+  model = lm(formula, data = Boston)
+  summ = summary(model)
+  
+  results = rbind(results, data.frame(
+    Predictor = var,
+    Intercept = round(coef(model)[1], 4),
+    Coefficient = round(coef(model)[2], 4),
+    Std_Error = round(summ$coefficients[2, 2], 4),
+    R_Squared = round(summ$r.squared, 4),
+    RSE = round(summ$sigma, 4)
+  ))
+}
+
+results
+
+```
+
+### (b) Best Fit Analysis
+
+Based on the table above, the model using **`lstat`** gives the best fit.
+
+* **R-Squared**: `lstat` has the highest  of `r results[results$Predictor=="lstat", "R_Squared"]`, explaining approximately 54% of the variance in median home values.
+* The next closest is `nox` at `r results[results$Predictor=="nox", "R_Squared"]` (18%).
+* **Residual Standard Error (RSE)**: `lstat` also yields the lowest prediction error (RSE = `r results[results$Predictor=="lstat", "RSE"]`).
+
+### (c) Coefficient Interpretation
+
+We examine the coefficients for usefulness and directionality:
+
+1. **`lstat` (Coef: `r results[results$Predictor=="lstat", "Coefficient"]`)**: This is the most useful predictor. The negative coefficient indicates that as the percentage of lower-status population increases, median home values decrease significantly.
+2. **`nox` (Coef: `r results[results$Predictor=="nox", "Coefficient"]`)**: The negative relationship suggests that higher pollution (nitrogen oxides) correlates with lower home values.
+3. **`crim` (Coef: `r results[results$Predictor=="crim", "Coefficient"]`)**: Crime rate shows a negative relationship with home value, though its explanatory power () is far lower than `lstat`.
+4. **`black` (Coef: `r results[results$Predictor=="black", "Coefficient"]`)**: While the positive coefficient is statistically valid, this predictor has the lowest  () among the four, making it the least useful single predictor in this comparison.
