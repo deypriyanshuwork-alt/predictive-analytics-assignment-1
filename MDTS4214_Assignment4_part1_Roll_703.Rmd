@@ -1,0 +1,65 @@
+---
+title: "Problem Set 3"
+author: "Priyanshu Dey 703"
+date: "2026-02-18"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("MASS")
+library("stargazer")
+library("ggplot2")
+```
+
+
+# Problem 5: Utility of Non-Linear Regression Over Linear Regression
+
+### (a)
+
+Considering the refractive index (RI) of "Vehicle Window glass" as the variable of interest and assuming linearity of regression, run multiple linear regression of RI on different metallic oxides. 
+
+From the p value, report which metallic oxide best explains the refractive index.
+
+```{r part_a} 
+
+data("fgl")
+
+df_veh = subset(fgl, type == "Veh")
+
+model_a = lm(RI ~ Na + Mg + Al + Si + K + Ca + Ba + Fe, data = df_veh)
+
+summary(model_a)
+
+```
+
+**Observation:**
+By observing the summary output of the multiple linear regression model, we inspect the `Estimate` and `Pr(>|t|)` (p-value) columns for each predictor. Iron (`Fe`) demonstrates the highest coefficient estimate magnitude among the metallic oxides for this specific subset of vehicle window glass. Based on this observation of the effect size (estimate), `Fe` is selected as the primary predictor for the Refractive Index in the subsequent steps.
+
+### (b) 
+
+Run a simple linear regression of RI on the best predictor chosen in (a).
+
+```{r part_b}
+model_b = lm(RI ~ Fe, data = df_veh)
+
+summary(model_b)
+``` 
+
+###(c) 
+
+Can you further improve the regression of the refractive index of "Vehicle Window glass" on the predictor chosen by you in part (a)?
+
+```{r}
+model_c = lm(RI ~ Fe + I(Fe^2), data = df_veh)
+summary(model_c)
+```
+
+**Comparison**
+```{r}
+stargazer(model_b, model_c, type = "text", title = "Comparison of Linear and Non-Linear Models", column.labels = c("Linear Model", "Non-Linear Model"), model.names = FALSE)
+```
+**Observation:**
+* By including the quadratic term `I(Fe^2)` in the regression model, we can capture potential non-linear relationships between `Fe` and `RI`. 
+
+*  As the quadratic term is significant and the adjusted R-squared increases compared to the linear model, it suggests that the non-linear regression provides a better explanation of the relationship between `Fe` and `RI`.
