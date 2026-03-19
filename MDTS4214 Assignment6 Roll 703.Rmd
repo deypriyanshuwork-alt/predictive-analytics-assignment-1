@@ -1,0 +1,213 @@
+---
+title: "ASSIGNMENT 6"
+author: "Priyanshu Dey_703"
+date: "`r Sys.Date()`"
+output: word_document
+  
+---
+
+## PROBLEM SHEET 6.
+### Application of Subset Selection Methods
+
+**Consider the “Hitters” dataset. We need the ISLR library to load the data. Our goal is to predict a baseball player’s salary based on the available predictors.**
+
+```{r, message=FALSE, warning=FALSE}
+library(ISLR)
+library(leaps)
+library(glmnet)
+
+baseball_data = Hitters
+head(baseball_data)
+```
+
+**1. Clean the data by removing any rows that have missing values.**
+
+```{r}
+clean_hitters = na.omit(baseball_data)
+```
+
+**2. Split the data randomly, keeping 80% for training and the rest for testing.**
+
+```{r}
+set.seed(123)
+total_rows = nrow(clean_hitters)
+train_idx = sample(1:total_rows, 210)
+train_data = clean_hitters[train_idx, ]
+test_data = clean_hitters[-train_idx, ]
+```
+
+**3. Perform best subset selection on the training data. We'll check models with up to 19 variables and compare them using Adjusted R-squared, BIC, and Cp.**
+
+```{r}
+subset_model = regsubsets(Salary ~ ., data = train_data, nvmax = 19)
+model_summary = summary(subset_model)
+
+best_r2 = which.max(model_summary$adjr2)
+best_bic = which.min(model_summary$bic)
+best_cp = which.min(model_summary$cp)
+
+cat("Best model coefficients under BIC:\n")
+print(coef(subset_model, best_bic))
+
+cat("\nBest model coefficients under Adjusted R^2:\n")
+print(coef(subset_model, best_r2))
+
+cat("\nBest model coefficients under Cp:\n")
+print(coef(subset_model, best_cp))
+```
+
+**4. Find the training MSE and test MSE for each of the best models selected above.**
+
+```{r}
+
+predict.regsubsets = function(object, newdata, id, ...){
+  form = as.formula(object$call[[2]])
+  mat = model.matrix(form, newdata)
+  coefi = coef(object, id=id)
+  xvars = names(coefi)
+  mat[, xvars] %*% coefi
+}
+
+# MSE for the best BIC Model
+train_pred_b = predict.regsubsets(subset_model, train_data, best_bic)
+test_pred_b = predict.regsubsets(subset_model, test_data, best_bic)
+train_mse_bic = mean((train_data$Salary - train_pred_b)^2)
+test_mse_bic = mean((test_data$Salary - test_pred_b)^2)
+
+# MSE for the best Adjusted R^2 Model
+train_pred_r = predict.regsubsets(subset_model, train_data, best_r2)
+test_pred_r = predict.regsubsets(subset_model, test_data, best_r2)
+train_mse_r2 = mean((train_data$Salary - train_pred_r)^2)
+test_mse_r2 = mean((test_data$Salary - test_pred_r)^2)
+
+# MSE for the best Cp Model
+train_pred_c = predict.regsubsets(subset_model, train_data, best_cp)
+test_pred_c = predict.regsubsets(subset_model, test_data, best_cp)
+train_mse_cp = mean((train_data$Salary - train_pred_c)^2)
+test_mse_cp = mean((test_data$Salary - test_pred_c)^2)
+
+cat("For BIC model,\nTraining MSE is", train_mse_bic, "\nTest MSE is", test_mse_bic, "\n\n")
+cat("For Adjusted R^2 model,\nTraining MSE is", train_mse_r2, "\nTest MSE is", test_mse_r2, "\n\n")
+cat("For Cp model,\nTraining MSE is", train_mse_cp, "\nTest MSE is", test_mse_cp, "\n\n")
+```
+
+**5. Repeat the process using the forward stepwise selection method.**
+
+```{r}
+fwd_model = regsubsets(Salary ~ ., data = train_data, nvmax = 19, method = "forward")
+fwd_summary = summary(fwd_model)
+
+fwd_r2_best = which.max(fwd_summary$adjr2)
+fwd_bic_best = which.min(fwd_summary$bic)
+fwd_cp_best = which.min(fwd_summary$cp)
+
+cat("Best forward model coefficients under BIC:\n")
+print(coef(fwd_model, fwd_bic_best))
+
+cat("\nBest forward model coefficients under Adjusted R^2:\n")
+print(coef(fwd_model, fwd_r2_best))
+
+cat("\nBest forward model coefficients under Cp:\n")
+print(coef(fwd_model, fwd_cp_best))
+
+# Calculating Test MSE for the best Adjusted R^2 forward model
+fwd_train_preds = predict.regsubsets(fwd_model, train_data, fwd_r2_best)
+fwd_test_preds = predict.regsubsets(fwd_model, test_data, fwd_r2_best)
+fwd_train_mse = mean((train_data$Salary - fwd_train_preds)^2)
+fwd_test_mse = mean((test_data$Salary - fwd_test_preds)^2)
+
+cat("\nFor Forward Selection (Adjusted R^2),\nTraining MSE is", fwd_train_mse, "\nTest MSE is", fwd_test_mse, "\n")
+```
+
+**6. Repeat using the backward stepwise selection method.**
+
+```{r}
+bwd_model = regsubsets(Salary ~ ., data = train_data, nvmax = 19, method = "backward")
+bwd_summary = summary(bwd_model)
+
+bwd_r2_best = which.max(bwd_summary$adjr2)
+bwd_bic_best = which.min(bwd_summary$bic)
+bwd_cp_best = which.min(bwd_summary$cp)
+
+cat("Best backward model coefficients under BIC:\n")
+print(coef(bwd_model, bwd_bic_best))
+
+cat("\nBest backward model coefficients under Adjusted R^2:\n")
+print(coef(bwd_model, bwd_r2_best))
+
+cat("\nBest backward model coefficients under Cp:\n")
+print(coef(bwd_model, bwd_cp_best))
+
+# Calculating Test MSE for the best Adjusted R^2 backward model
+bwd_train_preds = predict.regsubsets(bwd_model, train_data, bwd_r2_best)
+bwd_test_preds = predict.regsubsets(bwd_model, test_data, bwd_r2_best)
+bwd_train_mse = mean((train_data$Salary - bwd_train_preds)^2)
+bwd_test_mse = mean((test_data$Salary - bwd_test_preds)^2)
+
+cat("\nFor Backward Selection (Adjusted R^2),\nTraining MSE is", bwd_train_mse, "\nTest MSE is", bwd_test_mse, "\n")
+```
+
+**7. Compare the results of the three methods.**
+
+Best Subset Selection checks every possible combination to find the best model, but it takes a lot of computing power. Forward Selection adds predictors one by one, while Backward Selection starts with everything and drops predictors step by step.
+
+Looking at the metrics, the Cp criterion usually picked very simple models with high MSE, which means they were underfitting the data. The models picked using Adjusted R-squared kept more predictors and had much better accuracy. Overall, the Backward Selection model chosen with Adjusted R-squared ended up having the lowest test MSE, making it the best for predicting the salaries. BIC models were simpler than the Adjusted R-squared ones but had slightly higher test errors.
+
+---
+
+
+## PROBLEM SHEET 7 
+
+### Comparison of least squares, ridge regression, LASSO and Elastic Net
+
+**We are still working with the Hitters dataset to predict Salary. First, make sure all missing values are dropped.**
+
+```{r}
+hitters_p7 = na.omit(Hitters)
+```
+
+**1. Split the dataset randomly, keeping exactly 100 observations in the test set.**
+
+```{r}
+set.seed(42) 
+test_sample_idx = sample(1:nrow(hitters_p7), 100)
+
+train_df = hitters_p7[-test_sample_idx, ]
+test_df = hitters_p7[test_sample_idx, ]
+```
+
+**2. Train the model using least squares and report the training and test MSE.**
+
+```{r}
+ls_fit = lm(Salary ~ ., data = train_df)
+
+ls_train_mse = mean(resid(ls_fit)^2)
+ls_predictions = predict(ls_fit, newdata = test_df)
+ls_test_mse = mean((test_df$Salary - ls_predictions)^2)
+
+cat("Least Squares Model:\nTraining MSE:", ls_train_mse, "\nTest MSE:", ls_test_mse, "\n\n")
+```
+
+**3. Fit ridge regression models on the training set using a grid of λ values.** 
+```{r}
+# Setting up the matrix for glmnet
+x_train = model.matrix(Salary ~ ., data = train_df)[, -1]
+y_train = train_df$Salary
+x_test = model.matrix(Salary ~ ., data = test_df)[, -1]
+
+# Ridge Regression uses alpha = 0. We use cross-validation to find the best lambda.
+cv_ridge = cv.glmnet(x_train, y_train, alpha = 0)
+best_lambda_ridge = cv_ridge$lambda.min
+
+ridge_fit = glmnet(x_train, y_train, alpha = 0, lambda = best_lambda_ridge)
+
+ridge_train_preds = predict(ridge_fit, s = best_lambda_ridge, newx = x_train)
+ridge_test_preds = predict(ridge_fit, s = best_lambda_ridge, newx = x_test)
+
+ridge_train_mse = mean((y_train - ridge_train_preds)^2)
+ridge_test_mse = mean((test_df$Salary - ridge_test_preds)^2)
+
+cat("Ridge Regression Model:\nBest Lambda:", best_lambda_ridge, "\nTraining MSE:", ridge_train_mse, "\nTest MSE:", ridge_test_mse, "\n\n")
+```
+
+
