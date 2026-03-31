@@ -1,0 +1,103 @@
+
+---
+title: "MDTS4214 ASSIGNMENT8 Roll 703"
+author: "Priyanshu Dey 703"
+date: "2026-03-27"
+output:
+  word_document: default
+  html_document: default
+---
+
+## 1 Problem to demonstrate the fitting of a binary response variable using logistic regression
+
+**a. Consider the Weekly data available in the ISLR package of R. Use the data from 1990 to 2008 as train data and the data on 2009-2010 as test data.**
+
+```{r}
+library(ISLR)
+weekly_df = Weekly
+
+train_data = weekly_df[weekly_df$Year <= 2008, ]
+test_data = weekly_df[weekly_df$Year > 2008, ]
+```
+
+**b. Using the training data, fit a logistic regression with Direction as the response and the five lag variables plus Volume as predictors. Are there any significant predictors? If not, which of the tests is reporting the least p value. Interpret the coefficient corresponding to that test.**
+
+```{r}
+full_model = glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume, 
+                 data = train_data, 
+                 family = binomial)
+
+summary(full_model)
+```
+
+Based on the summary output, `Lag1` is the only predictor that shows statistical significance at the standard 5% level. Looking at its coefficient, we can say that for every one-unit increase in `Lag1`, the odds of the market going up drop by roughly 6%. 
+
+`Volume` barely scrapes by at a 10% significance level, which isn't very strong evidence. Its coefficient implies about an 8% decrease in the odds of an upward market for each one-unit increase. The rest of the lag variables don't seem to have any meaningful statistical impact.
+
+**c. Estimate the odds of market going “up” at median values of the predictors.**
+
+```{r}
+model_predictors = train_data[, c("Lag1", "Lag2", "Lag3", "Lag4", "Lag5", "Volume")]
+median_vals = apply(model_predictors, 2, median)
+
+
+log_odds = coef(full_model)["(Intercept)"] + sum(coef(full_model)[-1] * median_vals)
+estimated_odds = exp(log_odds)
+
+estimated_odds
+```
+
+**e. Using the fitted model and the predictor values from the test data, find an optimal cut point that maximises TPR(1 − FPR). Report the confusion matrix corresponding to the optimal cut-point value. From the confusion matrix compute the test error rate.**
+
+```{r}
+thresholds = seq(0.1, 0.9, by = 0.01)
+test_probs = predict(full_model, newdata = test_data, type = "response")
+
+eval_metrics = data.frame(threshold = thresholds,
+                          error_rate = NA,
+                          TPR = NA,
+                          FPR = NA)
+
+for(i in 1:length(thresholds)){
+  
+  thresh = thresholds[i]
+  pred_class = ifelse(test_probs > thresh, "Up", "Down")
+  
+ 
+  conf_mat = table(factor(pred_class, levels = c("Down","Up")),
+                   factor(test_data$Direction, levels = c("Down","Up")))
+  
+  TN = conf_mat["Down","Down"]
+  TP = conf_mat["Up","Up"]
+  FP = conf_mat["Up","Down"]
+  FN = conf_mat["Down","Up"]
+  
+  eval_metrics[i, "TPR"] = TP / (TP + FN)
+  eval_metrics[i, "FPR"] = FP / (FP + TN)
+  eval_metrics[i, "error_rate"] = mean(pred_class != test_data$Direction)
+}
+
+
+eval_metrics$score = eval_metrics$TPR * (1 - eval_metrics$FPR)
+
+
+best_cutoff = eval_metrics[which.max(eval_metrics$score), ]
+best_cutoff
+```
+
+Based on our calculations, the optimal cutoff point is 0.45.
+
+**f. Is there any change in the test error rate if we have worked with only the two predictors lag 1 and lag 2?**
+
+```{r}
+reduced_model = glm(Direction ~ Lag1 + Lag2,
+                    data = train_data, 
+                    family = "binomial")
+
+pred_reduced = ifelse(predict(reduced_model, test_data, type="response") > 0.5,
+                      "Up", "Down")
+
+mean(pred_reduced != test_data$Direction)
+```
+
+When we run a simpler model using just `Lag1` and `Lag2`, the test error rate drops to roughly 42% (down from 53.85% with the full model). This shows that throwing more variables at the problem doesn't automatically make it better. By removing the "noise" from the unhelpful predictors, our reduced model actually does a much better job at predicting unseen market data.
